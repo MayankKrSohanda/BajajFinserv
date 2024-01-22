@@ -3,13 +3,21 @@ package com.littlelemon.bajajfinserv
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
 import com.littlelemon.bajajfinserv.ui.theme.BajajFinservTheme
@@ -21,7 +29,6 @@ import io.ktor.client.request.get
 import io.ktor.http.ContentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.livedata.observeAsState
 
 
 class MainActivity : ComponentActivity() {
@@ -32,25 +39,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val employeeDetails = MutableLiveData<String>()
-
-    private suspend fun getEmployee(id: Int): String {
-        val response: Map<Int, EmployeeDetails> = client
-            .get("https://raw.githubusercontent.com/dixitsoham7/dixitsoham7.github.io/main/index.json")
-            .body()
-        return response[id]?.name?: String()
-    }
-
-
+    private val employeeNamesLiveData = MutableLiveData<List<EmployeeDetails>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         lifecycleScope.launch {
-            val employeeName = getEmployee(1)
+            val employeeName = getEmployee("employees")
             runOnUiThread {
-                employeeDetails.value = employeeName
+                employeeNamesLiveData.value = employeeName
             }
         }
+
         setContent {
             BajajFinservTheme {
                 // A surface container using the 'background' color from the theme
@@ -58,28 +58,49 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val name = employeeDetails.observeAsState("")
-                    Greeting(name.value)
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        val items = employeeNamesLiveData.observeAsState(emptyList())
+                        EmployeeName(items.value)
+                    }
                 }
+            }
+        }
+    }
+
+    private suspend fun getEmployee(employee: String): List<EmployeeDetails> {
+        val response: Map<String, List<EmployeeDetails>> = client
+            .get("https://raw.githubusercontent.com/dixitsoham7/dixitsoham7.github.io/main/index.json")
+            .body()
+        return response[employee] ?: listOf()
+    }
+}
+
+@Composable
+fun EmployeeName(
+    items: List<EmployeeDetails> = emptyList()
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        LazyColumn {
+            itemsIndexed(items) { _, item ->
+                EmployeeNameDetails(item)
             }
         }
     }
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    val employeeDetails = MutableLiveData<String>()
-    BajajFinservTheme {
-        val name = employeeDetails.observeAsState("")
-        Greeting(name.value)
+fun EmployeeNameDetails(
+    employee: EmployeeDetails
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (employee.name != null) {
+            Text(text = employee.name)
+        }
     }
 }
